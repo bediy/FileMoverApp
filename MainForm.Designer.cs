@@ -37,6 +37,7 @@ namespace FileMoverApp
             this.txtNumber = new System.Windows.Forms.TextBox();
             this.btnDestinationBrowse = new System.Windows.Forms.Button();
             this.btnMove = new System.Windows.Forms.Button();
+            this.toolTipOver3 = new System.Windows.Forms.ToolTip();
             this.SuspendLayout();
             // 
             // lblSourcePath
@@ -97,6 +98,9 @@ namespace FileMoverApp
             this.txtNumber.Size = new System.Drawing.Size(280, 21);
             this.txtNumber.TabIndex = 8;
             this.txtNumber.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.txtNumber_KeyPress);
+            // 在 InitializeComponent 方法中添加 Leave 事件处理
+            this.txtNumber.Leave += new System.EventHandler(this.txtNumber_Leave);
+            this.toolTipOver3.SetToolTip(this.txtNumber, "请输入不超过3位的记录仪编号");
             // 
             // btnDestinationBrowse
             // 
@@ -114,7 +118,7 @@ namespace FileMoverApp
             this.btnMove.Name = "btnMove";
             this.btnMove.Size = new System.Drawing.Size(80, 25);
             this.btnMove.TabIndex = 6;
-            this.btnMove.Text = "移动文件";
+            this.btnMove.Text = "导入视频";
             this.btnMove.UseVisualStyleBackColor = true;
             this.btnMove.Click += new System.EventHandler(this.btnMove_Click);
 
@@ -137,7 +141,7 @@ namespace FileMoverApp
             this.MaximizeBox = false;
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "文件移动工具";
+            this.Text = "记录仪视频导入神器";
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -154,5 +158,6 @@ namespace FileMoverApp
         private System.Windows.Forms.Button btnMove;
         private System.Windows.Forms.Label lblNumber;
         private System.Windows.Forms.TextBox txtNumber;
+        private System.Windows.Forms.ToolTip toolTipOver3;
     }
 }

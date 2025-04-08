@@ -28,7 +28,28 @@ namespace FileMoverApp
             if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar))
             {
                 e.Handled = true;
+                return;
             }
+            
+            // 限制只能输入三位数字
+            // 如果不是控制键，且当前文本长度已经达到3位，则阻止输入
+            if (!char.IsControl(e.KeyChar) && txtNumber.Text.Length >= 3)
+            {
+                // 如果有选中的文本，允许输入（因为输入会替换选中的文本）
+                if (txtNumber.SelectionLength == 0)
+                {
+                    e.Handled = true;
+                    // 显示自定义提示
+                    toolTipOver3.Show("记录仪编号不能超过3位数字", txtNumber, 0, -20, 2000);
+                }
+            }
+        }
+
+        // 添加 Leave 事件处理方法
+        private void txtNumber_Leave(object sender, EventArgs e)
+        {
+            // 当用户离开文本框时，将内容标准化
+            txtNumber.Text = NormalizeRecorderNumber(txtNumber.Text.Trim());
         }
 
         private void btnSourceBrowse_Click(object sender, EventArgs e)
@@ -83,14 +104,29 @@ namespace FileMoverApp
             return null;
         }
 
+        // 添加一个新方法来标准化记录仪编号
+        private string NormalizeRecorderNumber(string number)
+        {
+            // 去除前导零
+            if (!string.IsNullOrEmpty(number))
+            {
+                // 将字符串转换为整数，然后再转回字符串，自动去除前导零
+                if (int.TryParse(number, out int normalizedNumber))
+                {
+                    return normalizedNumber.ToString();
+                }
+            }
+            return number;
+        }
+
         private void btnMove_Click(object sender, EventArgs e)
         {
             logger.Info("开始文件移动操作");
 
             string sourcePath = txtSourcePath.Text.Trim();
             string destinationPath = txtDestinationPath.Text.Trim();
-            // 获取记录仪编号，如果为空则使用默认值
-            string recorderNumber = txtNumber.Text.Trim();
+            // 获取记录仪编号
+            string recorderNumber = NormalizeRecorderNumber(txtNumber.Text.Trim());
 
             if (string.IsNullOrEmpty(recorderNumber))
             {
@@ -259,31 +295,33 @@ namespace FileMoverApp
                 StopVoiceReminder();
                 
                 // 创建新的语音合成器
-                synth = new SpeechSynthesizer();
-                
-                // 设置语音参数
-                synth.Rate = 0; // 语速 (-10 到 10)
-                synth.Volume = 100; // 音量 (0 到 100)
-                
-                // 尝试设置中文语音
-                try
+                if (synth == null) 
                 {
-                    // 查找中文语音
-                    foreach (var voice in synth.GetInstalledVoices())
+                    synth = new SpeechSynthesizer();
+                
+                    // 设置语音参数
+                    synth.Rate = 0; // 语速 (-10 到 10)
+                    synth.Volume = 100; // 音量 (0 到 100)
+                
+                    // 尝试设置中文语音
+                    try
                     {
-                        var info = voice.VoiceInfo;
-                        if (info.Culture.Name.StartsWith("zh-"))
+                        // 查找中文语音
+                        foreach (var voice in synth.GetInstalledVoices())
                         {
-                            synth.SelectVoice(info.Name);
-                            break;
+                            var info = voice.VoiceInfo;
+                            if (info.Culture.Name.StartsWith("zh-"))
+                            {
+                                synth.SelectVoice(info.Name);
+                                break;
+                            }
                         }
                     }
+                    catch
+                    {
+                        logger.Warn("找不到中文语音，使用默认语音");
+                    }
                 }
-                catch
-                {
-                    logger.Warn("找不到中文语音，使用默认语音");
-                }
-                
                 // 播放语音（使用异步方式，这样不会阻塞UI线程）
                 string message = $"{recorderNumber}号记录仪视频导入完成" +
                     $"{recorderNumber}号记录仪视频导入完成" +
