@@ -104,7 +104,7 @@ namespace FileMoverApp
             return null;
         }
 
-        // 添加一个新方法来标准化记录仪编号
+        // 添加一个新方法来标准化记录仪编号和月份日期
         private string NormalizeRecorderNumber(string number)
         {
             // 去除前导零
@@ -215,7 +215,7 @@ namespace FileMoverApp
                         break;
                     }
                 }
-                logger.Info($"找到 {targetsToMove.Count} 个具有相同日期部分的文件需要移动");
+                logger.Info($"*************找到 {targetsToMove.Count} 个具有相同日期部分的文件需要移动*********");
                 
                 string parsePath = Path.Combine(destinationPath, ParseDateToYearMonth(key), ParseDateToMonthDay(key), recorderNumber);
                 logger.Info($"**********        合成目标路径: {parsePath}        ***********");
@@ -400,7 +400,7 @@ namespace FileMoverApp
             if (dateString.Length == 8)
             {
                 string year = dateString.Substring(0, 4);
-                string month = dateString.Substring(4, 2);
+                string month = NormalizeRecorderNumber(dateString.Substring(4, 2));
                 return $"{year}.{month}";
             }
             return dateString;
@@ -410,8 +410,8 @@ namespace FileMoverApp
         {
             if (dateString.Length == 8)
             {
-                string month = dateString.Substring(4, 2);
-                string day = dateString.Substring(6, 2);
+                string month = NormalizeRecorderNumber(dateString.Substring(4, 2));
+                string day = NormalizeRecorderNumber(dateString.Substring(6, 2));
                 return $"{month}.{day}";
             }
             return dateString;
