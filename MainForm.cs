@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
@@ -40,7 +41,7 @@ namespace FileMoverApp
                 {
                     e.Handled = true;
                     // 显示自定义提示
-                    toolTipOver3.Show("记录仪编号不能超过3位数字", txtNumber, 0, -20, 2000);
+                    toolTip.Show("记录仪编号不能超过3位数字", txtNumber, 0, -20, 2000);
                 }
             }
         }
@@ -56,7 +57,7 @@ namespace FileMoverApp
         {
             using (var folderDialog = new FolderBrowserDialog())
             {
-                folderDialog.Description = "选择源文件夹";
+                folderDialog.Description = "请选择记录仪视频所在的文件夹，通常为：K:\\VIDEO";
                 
                 // 如果文本框中已有路径且路径有效，则设置为初始目录
                 string currentPath = txtSourcePath.Text.Trim();
@@ -76,7 +77,7 @@ namespace FileMoverApp
         {
             using (var folderDialog = new FolderBrowserDialog())
             {
-                folderDialog.Description = "选择目标文件夹";
+                folderDialog.Description = "请选择视频存储的目标磁盘路径，如果要存储在F盘，选择F:\\即可。程序会自动创建此路径下的日期文件夹比如2025.3，以及后面的目录";
                 
                 // 如果文本框中已有路径且路径有效，则设置为初始目录#
                 string currentPath = txtDestinationPath.Text.Trim();
@@ -180,6 +181,7 @@ namespace FileMoverApp
                     filesToMove.Add(file);
                 }
             }
+
             logger.Info($"过滤后剩余 {filesToMove.Count} 个可移动的文件");
 
             if (filesToMove.Count == 0)
@@ -187,7 +189,29 @@ namespace FileMoverApp
                 MessageBox.Show("源文件夹中没有可移动的文件", "信息", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
-            
+
+            // 使用自定义消息框显示确认信息
+            string message = "请确认记录仪编号：\n" + recorderNumber;
+
+            // 创建格式化部分
+            var formatSections = new List<TextFormatSection>
+                {
+                    // 设置标题文本为绿色、16点大小 
+                    new TextFormatSection(0, 11, Color.Green, 16, false),
+                    
+                    // 设置记录仪编号为红色、70点大小、加粗
+                    new TextFormatSection(message.IndexOf(recorderNumber), recorderNumber.Length, Color.Red, 70, true),
+                    
+                };
+
+            // 显示格式化的消息框
+            DialogResult resultNumber = CustomMessageBox.ShowFormatted(message, formatSections, "操作确认", MessageBoxButtons.OKCancel, HorizontalAlignment.Center);
+
+            if (resultNumber != DialogResult.OK) 
+            {
+                return; 
+            }
+
             logger.Info("开始分批次移动文件");
 
             //分批次移动文件

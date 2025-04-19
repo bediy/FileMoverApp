@@ -37,7 +37,7 @@ namespace FileMoverApp
             this.txtNumber = new System.Windows.Forms.TextBox();
             this.btnDestinationBrowse = new System.Windows.Forms.Button();
             this.btnMove = new System.Windows.Forms.Button();
-            this.toolTipOver3 = new System.Windows.Forms.ToolTip();
+            this.toolTip = new System.Windows.Forms.ToolTip();
             this.SuspendLayout();
             // 
             // lblSourcePath
@@ -55,6 +55,7 @@ namespace FileMoverApp
             this.txtSourcePath.Name = "txtSourcePath";
             this.txtSourcePath.Size = new System.Drawing.Size(280, 21);
             this.txtSourcePath.TabIndex = 1;
+            this.toolTip.SetToolTip(this.txtSourcePath, "请选择记录仪视频所在的文件夹，通常为：K:\\VIDEO");
             // 
             // btnSourceBrowse
             // 
@@ -90,6 +91,8 @@ namespace FileMoverApp
             this.txtDestinationPath.Name = "txtDestinationPath";
             this.txtDestinationPath.Size = new System.Drawing.Size(280, 21);
             this.txtDestinationPath.TabIndex = 4;
+            this.toolTip.SetToolTip(this.txtDestinationPath, "请选择视频存储的目标磁盘路径，如果要存储在F盘，选择F:\\即可。\n" +
+                "程序会自动创建此路径下的日期文件夹比如2025.3，以及后面的目录");
             // 
             // txtNumber
             // 
@@ -100,7 +103,7 @@ namespace FileMoverApp
             this.txtNumber.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.txtNumber_KeyPress);
             // 在 InitializeComponent 方法中添加 Leave 事件处理
             this.txtNumber.Leave += new System.EventHandler(this.txtNumber_Leave);
-            this.toolTipOver3.SetToolTip(this.txtNumber, "请输入不超过3位的记录仪编号");
+            this.toolTip.SetToolTip(this.txtNumber, "请输入不超过3位的记录仪编号");
             // 
             // btnDestinationBrowse
             // 
@@ -158,6 +161,6 @@ namespace FileMoverApp
         private System.Windows.Forms.Button btnMove;
         private System.Windows.Forms.Label lblNumber;
         private System.Windows.Forms.TextBox txtNumber;
-        private System.Windows.Forms.ToolTip toolTipOver3;
+        private System.Windows.Forms.ToolTip toolTip;
     }
 }
