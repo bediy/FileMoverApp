@@ -120,196 +120,7 @@ namespace FileMoverApp
             return number;
         }
 
-        private void btnMove_Click(object sender, EventArgs e)
-        {
-            logger.Info("开始文件移动操作");
-
-            string sourcePath = txtSourcePath.Text.Trim();
-            string destinationPath = txtDestinationPath.Text.Trim();
-            // 获取记录仪编号
-            string recorderNumber = NormalizeRecorderNumber(txtNumber.Text.Trim());
-
-            if (string.IsNullOrEmpty(recorderNumber))
-            {
-                MessageBox.Show("请输入记录仪编号", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            // 验证路径
-            if (string.IsNullOrEmpty(sourcePath) || string.IsNullOrEmpty(destinationPath))
-            {
-                MessageBox.Show("请选择记录仪视频目录和目标磁盘目录", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            if (!Directory.Exists(sourcePath))
-            {
-                logger.Error($"记录仪视频目录不存在: {sourcePath}");
-                MessageBox.Show("记录仪视频目录不存在", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-            
-            if (!Directory.Exists(destinationPath))
-            {
-                logger.Error($"目标磁盘目录不存在: {destinationPath}");
-                MessageBox.Show("目标磁盘目录不存在", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            logger.Info($"记录仪编号: {recorderNumber}, 记录仪视频目录: {sourcePath}, 目标磁盘目录: {destinationPath}");
-
-            // 获取源目录中的所有文件（不包括子目录和隐藏/系统文件）
-            string[] files;
-            try
-            {
-                files = Directory.GetFiles(sourcePath);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, $"获取源文件夹中的文件时出错: {ex.Message}");
-                MessageBox.Show($"获取源文件夹中的文件时出错: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            // 过滤掉隐藏和系统文件
-            var filesToMove = new System.Collections.Generic.List<string>();
-            foreach (string file in files)
-            {
-                FileAttributes attributes = File.GetAttributes(file);
-                if (!attributes.HasFlag(FileAttributes.Hidden) && !attributes.HasFlag(FileAttributes.System))
-                {
-                    filesToMove.Add(file);
-                }
-            }
-
-            logger.Info($"过滤后剩余 {filesToMove.Count} 个可移动的文件");
-
-            if (filesToMove.Count == 0)
-            {
-                MessageBox.Show("源文件夹中没有可移动的文件", "信息", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            // 使用自定义消息框显示确认信息
-            string message = "请确认记录仪编号：\n" + recorderNumber;
-
-            // 创建格式化部分
-            var formatSections = new List<TextFormatSection>
-                {
-                    // 设置标题文本为绿色、16点大小 
-                    new TextFormatSection(0, 11, Color.Green, 16, false),
-                    
-                    // 设置记录仪编号为红色、70点大小、加粗
-                    new TextFormatSection(message.IndexOf(recorderNumber), recorderNumber.Length, Color.Red, 70, true),
-                    
-                };
-
-            // 显示格式化的消息框
-            DialogResult resultNumber = CustomMessageBox.ShowFormatted(message, formatSections, "操作确认", MessageBoxButtons.OKCancel, HorizontalAlignment.Center);
-
-            if (resultNumber != DialogResult.OK) 
-            {
-                return; 
-            }
-
-            logger.Info("开始分批次移动文件");
-
-            //分批次移动文件
-            var finalResult = true;
-            while (filesToMove.Count > 0)
-            {
-                string key = getFileNameKey(filesToMove.First());
-                if (string.IsNullOrEmpty(key))
-                {
-                    logger.Error("视频文件名格式异常");
-                    MessageBox.Show("视频文件名格式异常", "提示", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    finalResult = false;
-                    break;
-                }
-                logger.Info($"*********     获取到文件名日期部分: {key}      *************");
-                List<string> targetsToMove = new List<string>();
-                foreach (var name in filesToMove)
-                {
-                    if (getFileNameKey(name) == key)
-                    {
-                        targetsToMove.Add(name);
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-                logger.Info($"*************找到 {targetsToMove.Count} 个具有相同日期部分的文件需要移动*********");
-                
-                string parsePath = Path.Combine(destinationPath, ParseDateToYearMonth(key), ParseDateToMonthDay(key), recorderNumber);
-                logger.Info($"**********        合成目标路径: {parsePath}        ***********");
-                if (!Directory.Exists(parsePath))
-                {
-                    try
-                    {
-                        Directory.CreateDirectory(parsePath);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Error(ex, $"无法创建目标文件夹: {ex.Message}");
-                        MessageBox.Show($"无法创建目标文件夹: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        finalResult = false;
-                        break;
-                    }
-                }
-
-                //移动targets
-                logger.Info($"准备移动 {targetsToMove.Count} 个文件到合成目标路径: {parsePath}");
-                ShellFileOperation fileOp = buildMoveOperation(parsePath, targetsToMove);
-                try
-                {
-                    bool success = fileOp.DoOperation();
-                    if (fileOp.OperationAborted)
-                    {
-                        //用户中止操作
-                        logger.Warn("用户中止了文件移动操作");
-                        MessageBox.Show("文件移动操作中止", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        finalResult = false;
-                        break;
-                    }
-                    else if (!success)
-                    {
-                        logger.Error("文件移动操作失败");
-                        MessageBox.Show("文件移动操作失败", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        finalResult = false;
-                        //一个批次移动失败，退出循环
-                        break;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    logger.Error(ex, $"执行文件移动操作时出错: {ex.Message}");
-                    MessageBox.Show($"执行文件移动操作时出错: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    finalResult = false;
-                    //一个批次移动失败，退出循环
-                    break;
-                }
-                //移动targets成功后，从fileNames中删除targets
-                filesToMove.RemoveRange(0, targetsToMove.Count);
-                logger.Info($"**************移动成功，剩余{filesToMove.Count}个文件需要移动**************");
-            }
-            //移动不出错，即表示全部文件移动成功
-            if (finalResult)
-            {
-                // 先开始语音提醒（异步播放）
-                PlayVoiceReminder(recorderNumber);
-                
-                // 显示消息框
-                DialogResult result = MessageBox.Show("文件移动操作已完成", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                
-                // 当用户点击确定按钮后，停止语音播放
-                if (result == DialogResult.OK)
-                {
-                    StopVoiceReminder();
-                }
-            }
-        }
-
+       
         // 添加语音提醒方法
         private void PlayVoiceReminder(string recorderNumber)
         {
@@ -502,6 +313,217 @@ namespace FileMoverApp
             {
                 // 保存设置出错时不显示错误，静默失败
                 Debug.WriteLine($"保存路径设置时出错: {ex.Message}");
+            }
+        }
+
+        private bool MoveFilesByDateBatch(List<string> fileList, string destinationBasePath, string recorderNumber)
+        {
+            logger.Info("*****************开始按日期批量移动文件*****************");
+
+            var finalResult = true;
+
+            // 按日期部分对文件进行分组
+            var fileGroups = fileList
+                .Where(file => !string.IsNullOrEmpty(getFileNameKey(Path.GetFileName(file))))
+                .GroupBy(file => getFileNameKey(Path.GetFileName(file)))
+                .ToList();
+
+            logger.Info($"文件已按日期分组，共有 {fileGroups.Count} 个不同日期组");
+
+            // 遍历每个日期组，分批移动文件
+            foreach (var group in fileGroups)
+            {
+                string dateKey = group.Key;
+                var filesInGroup = group.ToList();
+
+                logger.Info($"处理日期为 {dateKey} 的文件组，共有 {filesInGroup.Count} 个文件");
+
+                // 构建目标路径
+                string targetPath = Path.Combine(
+                    destinationBasePath,
+                    ParseDateToYearMonth(dateKey),
+                    ParseDateToMonthDay(dateKey),
+                    recorderNumber
+                );
+
+                logger.Info($"目标路径: {targetPath}");
+
+                // 确保目标目录存在
+                if (!Directory.Exists(targetPath))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(targetPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Error(ex, $"无法创建目标目录 {targetPath}: {ex.Message}");
+                        MessageBox.Show($"无法创建目标目录: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        finalResult = false;
+                        break;
+                    }
+                }
+
+                // 构建移动操作
+                ShellFileOperation fileOp = buildMoveOperation(targetPath, filesInGroup);
+
+                try
+                {
+                    bool success = fileOp.DoOperation();
+
+                    if (fileOp.OperationAborted)
+                    {
+                        logger.Warn("用户中止了文件移动操作");
+                        MessageBox.Show("文件移动操作被中止", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        finalResult = false;
+                        break; // 用户中止，停止所有后续移动
+                    }
+                    else if (!success)
+                    {
+                        logger.Error($"移动日期为 {dateKey} 的文件组失败");
+                        MessageBox.Show($"移动日期为 {dateKey} 的文件组失败", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        finalResult = false;
+                        break;
+                    }
+                    else
+                    {
+                        logger.Info($"成功移动日期为 {dateKey} 的 {filesInGroup.Count} 个文件");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, $"移动日期为 {dateKey} 的文件组时出错: {ex.Message}");
+                    MessageBox.Show($"移动文件时出错: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    finalResult = false;
+                    break;
+                }
+            }
+
+            logger.Info("*****************按日期批量移动文件完成*****************");
+            return finalResult;
+        }
+
+        private void btnMove_Click(object sender, EventArgs e)
+        {
+            logger.Info("开始文件移动操作");
+
+            string sourcePath = txtSourcePath.Text.Trim();
+            string destinationPath = txtDestinationPath.Text.Trim();
+            // 获取记录仪编号
+            string recorderNumber = NormalizeRecorderNumber(txtNumber.Text.Trim());
+
+            if (string.IsNullOrEmpty(recorderNumber))
+            {
+                MessageBox.Show("请输入记录仪编号", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            // 验证路径
+            if (string.IsNullOrEmpty(sourcePath) || string.IsNullOrEmpty(destinationPath))
+            {
+                MessageBox.Show("请选择记录仪视频目录和目标磁盘目录", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (!Directory.Exists(sourcePath))
+            {
+                logger.Error($"记录仪视频目录不存在: {sourcePath}");
+                MessageBox.Show("记录仪视频目录不存在", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (!Directory.Exists(destinationPath))
+            {
+                logger.Error($"目标磁盘目录不存在: {destinationPath}");
+                MessageBox.Show("目标磁盘目录不存在", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            logger.Info("#########################");
+            logger.Info($"记录仪编号: {recorderNumber}, 记录仪视频目录: {sourcePath}, 目标磁盘目录: {destinationPath}");
+
+            // 获取源目录中的所有文件（不包括子目录和隐藏/系统文件）
+            string[] files;
+            try
+            {
+                files = Directory.GetFiles(sourcePath);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"获取源文件夹中的文件时出错: {ex.Message}");
+                MessageBox.Show($"获取源文件夹中的文件时出错: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            // 过滤掉隐藏和系统文件
+            var filesToMove = new List<string>();
+            foreach (string file in files)
+            {
+                FileAttributes attributes = File.GetAttributes(file);
+                if (!attributes.HasFlag(FileAttributes.Hidden) && !attributes.HasFlag(FileAttributes.System))
+                {
+                    filesToMove.Add(file);
+                }
+            }
+
+            logger.Info($"过滤后剩余 {filesToMove.Count} 个可移动的文件");
+
+            if (filesToMove.Count == 0)
+            {
+                MessageBox.Show("源文件夹中没有可移动的文件", "信息", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            // 使用自定义消息框显示确认信息
+            string message = "请确认记录仪编号：\n" + recorderNumber;
+
+            // 创建格式化部分
+            var formatSections = new List<TextFormatSection>
+            {
+                // 设置标题文本为绿色、16点大小 
+                new TextFormatSection(0, 11, Color.Green, 16, false),
+            
+                // 设置记录仪编号为红色、70点大小、加粗
+                new TextFormatSection(message.IndexOf(recorderNumber), recorderNumber.Length, Color.Red, 70, true),
+
+            };
+
+            // 显示格式化的消息框
+            DialogResult resultNumber = CustomMessageBox.ShowFormatted(message, formatSections, "操作确认", MessageBoxButtons.OKCancel, HorizontalAlignment.Center);
+
+            if (resultNumber != DialogResult.OK)
+            {
+                return;
+            }
+
+            // 按日期批量移动
+            bool result = MoveFilesByDateBatch(filesToMove, destinationPath, recorderNumber);
+
+            if (result)
+            {
+                // 播放语音提醒
+                PlayVoiceReminder(recorderNumber);
+
+                // 检查是否还有文件未移动（可能是因为格式不正确）
+                int remainingFiles = Directory.GetFiles(sourcePath)
+                    .Count(f => !File.GetAttributes(f).HasFlag(FileAttributes.Hidden) &&
+                               !File.GetAttributes(f).HasFlag(FileAttributes.System));
+
+                DialogResult resultD;
+                if (remainingFiles == 0) 
+                {
+                    resultD = MessageBox.Show("文件移动操作已完成", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else 
+                {
+                    resultD = MessageBox.Show($"移动操作完成，但仍有 {remainingFiles} 个文件未能移动，可能是因为不是记录仪视频文件。",
+                        "部分完成", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                // 当用户点击确定按钮后，停止语音播放
+                if (resultD == DialogResult.OK)
+                {
+                    StopVoiceReminder();
+                }
             }
         }
 
