@@ -21,6 +21,23 @@ namespace FileMoverApp
         public MainForm()
         {
             InitializeComponent();
+            // Load the icon from the file
+            try
+            {
+                string iconPath = Path.Combine(Application.StartupPath, "app_icon.ico");
+                if (File.Exists(iconPath))
+                {
+                    this.Icon = new Icon(iconPath);
+                }
+                else
+                {
+                    logger.Warn("Icon file 'app_icon.ico' not found in the application directory.");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Error loading application icon.");
+            }
         }
         
         private void txtNumber_KeyPress(object sender, KeyPressEventArgs e)
@@ -77,7 +94,8 @@ namespace FileMoverApp
         {
             using (var folderDialog = new FolderBrowserDialog())
             {
-                folderDialog.Description = "请选择视频存储的目标磁盘路径，如果要存储在F盘，选择F:\\即可。程序会自动创建此路径下的日期文件夹比如2025.3，以及后面的目录";
+                folderDialog.Description = "请选择视频存储的目标磁盘路径，如果要存储在F盘，选择F:\\即可。" +
+                    "程序会自动创建此路径下的日期编号文件夹，目录结构为[磁盘路径:\\2025.3\\3.7\\22]";
                 
                 // 如果文本框中已有路径且路径有效，则设置为初始目录#
                 string currentPath = txtDestinationPath.Text.Trim();
@@ -137,30 +155,10 @@ namespace FileMoverApp
                     // 设置语音参数
                     synth.Rate = 0; // 语速 (-10 到 10)
                     synth.Volume = 100; // 音量 (0 到 100)
-                
-                    // 尝试设置中文语音
-                    try
-                    {
-                        // 查找中文语音
-                        foreach (var voice in synth.GetInstalledVoices())
-                        {
-                            var info = voice.VoiceInfo;
-                            if (info.Culture.Name.StartsWith("zh-"))
-                            {
-                                synth.SelectVoice(info.Name);
-                                break;
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        logger.Warn("找不到中文语音，使用默认语音");
-                    }
                 }
                 // 播放语音（使用异步方式，这样不会阻塞UI线程）
-                string message = $"{recorderNumber}号记录仪视频导入完成" +
-                    $"{recorderNumber}号记录仪视频导入完成" +
-                    $"{recorderNumber}号记录仪视频导入完成";
+                string singleMessage = string.Format("{0}号记录仪视频导入完成", recorderNumber);
+                string message = string.Concat(Enumerable.Repeat(singleMessage, 3)); // 重复3次
                 synth.SpeakAsync(message);
             }
             catch (Exception ex)
@@ -169,7 +167,17 @@ namespace FileMoverApp
                 // 语音出错时不显示错误，静默失败
             }
         }
-        
+
+        private void DisposeSpeech()
+        {
+            if (synth != null)
+            {
+                // 释放资源
+                synth.Dispose();
+                synth = null;
+            }
+        }
+
         // 添加停止语音提醒的方法
         private void StopVoiceReminder()
         {
@@ -183,9 +191,6 @@ namespace FileMoverApp
                         synth.SpeakAsyncCancelAll();
                     }
                     
-                    // 释放资源
-                    synth.Dispose();
-                    synth = null;
                 }
                 catch (Exception ex)
                 {
@@ -272,6 +277,7 @@ namespace FileMoverApp
         {
             SavePathSettings();
             StopVoiceReminder(); // 确保关闭窗体时停止语音播放
+            DisposeSpeech(); // 释放语音合成器资源
             base.OnFormClosing(e);
         }
 
@@ -510,11 +516,11 @@ namespace FileMoverApp
                                !File.GetAttributes(f).HasFlag(FileAttributes.System));
 
                 DialogResult resultD;
-                if (remainingFiles == 0) 
+                if (remainingFiles == 0)
                 {
-                    resultD = MessageBox.Show("文件移动操作已完成", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    resultD = MessageBox.Show("文件移动操作已完成！", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
-                else 
+                else
                 {
                     resultD = MessageBox.Show($"移动操作完成，但仍有 {remainingFiles} 个文件未能移动，可能是因为不是记录仪视频文件。",
                         "部分完成", MessageBoxButtons.OK, MessageBoxIcon.Warning);
