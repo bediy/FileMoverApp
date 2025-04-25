@@ -92,7 +92,7 @@ namespace FileMoverApp
             this.txtDestinationPath.Size = new System.Drawing.Size(280, 21);
             this.txtDestinationPath.TabIndex = 4;
             this.toolTip.SetToolTip(this.txtDestinationPath, "请选择视频存储的目标磁盘路径，如果要存储在F盘，选择F:\\即可。\n" +
-                "程序会自动创建此路径下的日期文件夹比如2025.3，以及后面的目录");
+                "程序会自动创建此路径下的日期编号文件夹，目录结构为[磁盘路径:\\2025.3\\3.7\\22]");
             // 
             // txtNumber
             // 
