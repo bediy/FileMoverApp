@@ -144,7 +144,7 @@ namespace FileMoverApp
             this.MaximizeBox = false;
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "记录仪视频导入神器";
+            this.Text = "记录仪视频导入神器(辉鸿专用) v1.0.2";
             this.ResumeLayout(false);
             this.PerformLayout();
 

@@ -111,7 +111,26 @@ namespace FileMoverApp
             }
         }
 
-        
+        /// <summary>
+        /// 获取指定文件的修改日期
+        /// </summary>
+        /// <param name="filePath">文件完整路径</param>
+        /// <returns>文件的修改日期（yyyyMMdd格式），若文件不存在或读取失败则返回 null</returns>
+        private string GetFileModificationDate(string filePath)
+        {
+            try
+            {
+                if (File.Exists(filePath))
+                {
+                    return File.GetLastWriteTime(filePath).ToString("yyyyMMdd");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"获取文件修改日期失败: {filePath}");
+            }
+            return null;
+        }
 
         private string getFileNameKey(string fileName)
         {
@@ -330,8 +349,8 @@ namespace FileMoverApp
 
             // 按日期部分对文件进行分组
             var fileGroups = fileList
-                .Where(file => !string.IsNullOrEmpty(getFileNameKey(Path.GetFileName(file))))
-                .GroupBy(file => getFileNameKey(Path.GetFileName(file)))
+                .Where(file => !string.IsNullOrEmpty(GetFileModificationDate(file)))
+                .GroupBy(file => GetFileModificationDate(file))
                 .ToList();
 
             logger.Info($"文件已按日期分组，共有 {fileGroups.Count} 个不同日期组");
@@ -480,6 +499,34 @@ namespace FileMoverApp
                 return;
             }
 
+            //判断filesToMove中文件的类型是否为常用的视频文件类型（.mp4, .avi, .mov等）
+            var validFileTypes = new[] { ".mp4", ".avi", ".mov", ".mkv", ".flv", ".wmv", ".mpg", ".mpeg", ".3gp", ".mts", ".m4v" };
+            var validVideoFiles = filesToMove.Where(file => validFileTypes.Contains(Path.GetExtension(file).ToLowerInvariant()));
+
+            if (validVideoFiles.Count() == 0)
+            {
+                MessageBox.Show("源文件夹中没有可移动的视频文件", "信息", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            logger.Info($"过滤后剩余 {validVideoFiles.Count()} 个视频文件");
+
+            //检查validVideoFiles中是否有文件的修改日期与系统日期相差一个月以上
+            // bool hasFilesOlderThanMonth = validVideoFiles.Any(file =>
+            // {
+            //     string modDate = GetFileModificationDate(file);
+            //     if (string.IsNullOrEmpty(modDate)) return false;
+
+            //     if (!DateTime.TryParse(modDate, out DateTime fileDate)) return false;
+
+            //     return (DateTime.Now - fileDate).TotalDays > 30;
+            // });
+
+            // if (hasFilesOlderThanMonth)
+            // {
+            //     MessageBox.Show("视频文件中存在修改日期与系统日期相差超过一个月的视频文件，请确定记录仪时间设置正确后再移动！！！", "警告", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+            // }
+
             // 使用自定义消息框显示确认信息
             string message = "请确认记录仪编号：\n" + recorderNumber;
 
@@ -502,8 +549,8 @@ namespace FileMoverApp
                 return;
             }
 
-            // 按日期批量移动
-            bool result = MoveFilesByDateBatch(filesToMove, destinationPath, recorderNumber);
+            // 按日期批量移动（只移动有效的视频文件）
+            bool result = MoveFilesByDateBatch(validVideoFiles.ToList(), destinationPath, recorderNumber);
 
             if (result)
             {
